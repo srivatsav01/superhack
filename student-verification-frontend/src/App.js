@@ -85,7 +85,7 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Educlaim</h1>
+        <h1>Educlaim: Your digital Academic Identity</h1>
       </header>
       <main className="app-main">
         <div className="verification-box">
