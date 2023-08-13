@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReclaimSDK from '@reclaimprotocol/reclaim-client-sdk';
 import { EAS, SchemaEncoder } from "@ethereum-attestation-service/eas-sdk";
 import { Web3Provider } from '@ethersproject/providers';
-import { Wallet, getDefaultProvider,JsonRpcProvider } from 'ethers';
+import { Wallet, JsonRpcProvider } from 'ethers';
 import QRCode from 'react-qr-code';
 import { v4 as uuidv4 } from 'uuid';
 import './App.css';
@@ -15,6 +15,7 @@ function App() {
   const [userAddress, setUserAddress] = useState(null);
   const [sessionLink, setSessionLink] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [attestationLink, setAttestationLink] = useState(null);
 
   const connectMetaMask = async () => {
     if (window.ethereum) {
@@ -35,8 +36,17 @@ function App() {
     try {
       const submissionData = await session?.onSubmission;
       if (submissionData.proofs) {
-        createAttestation(); // Call the attestation function directly if proofs are submitted
-      }
+        const parsedData = JSON.parse(submissionData.proofs[0].parameters);
+        const email = parsedData.emailAddress || ""; // Extracting the email
+    
+        if (email.endsWith('iith.ac.in')) {
+            console.log('Email is from iith.ac.in domain');
+            createAttestation(); // Call the attestation function directly if proofs are submitted
+        } else {
+            console.log('Email is not from iith.ac.in domain');
+        }
+    }
+    
     } catch (e) {
       console.error('Error during submission:', e);
     } finally {
@@ -44,25 +54,14 @@ function App() {
     }
   };
 
- // WARNING: Do not use a real private key in client-side code!
-
-const createAttestation = async () => {
+  const createAttestation = async () => {
     const eas = new EAS(EASContractAddress);
-    const YOUR_PRIVATE_KEY = process.env.REACT_APP_PRIVATE_KEY;
-    console.log(YOUR_PRIVATE_KEY)
-    // Use your private key to create a signer
     const SEPOLIA_RPC_URL = "https://eth-sepolia-public.unifra.io";
-
-    // Create a provider for Sepolia
     const provider = new JsonRpcProvider(SEPOLIA_RPC_URL);
-    
-    // Use your private key to create a signer
     const wallet = new Wallet(process.env.REACT_APP_PRIVATE_KEY);
     const signer = wallet.connect(provider);
     eas.connect(signer);
-    console.log(signer)
 
-    // Now, use the signer directly with EAS
     const encodedData = schemaEncoder.encodeData([
       { name: "studentAddr", value: userAddress, type: "address" },
       { name: "isStudent", value: true, type: "bool" },
@@ -76,15 +75,17 @@ const createAttestation = async () => {
         revocable: true,
         data: encodedData,
       },
-    }, { gasLimit: 500000, signer: signer }); // Pass the signer here
+    }, { gasLimit: 500000, signer: signer });
 
     const newAttestationUID = await tx.wait();
     console.log("New attestation UID:", newAttestationUID);
-};
+    setAttestationLink(`https://sepolia.easscan.org/attestation/view/${newAttestationUID}`);
+  };
+
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>Student Verification</h1>
+        <h1>Educlaim</h1>
       </header>
       <main className="app-main">
         <div className="verification-box">
@@ -103,15 +104,22 @@ const createAttestation = async () => {
           {sessionLink && (
             <div>
               <h2>Scan the QR Code to Verify</h2>
-              <div>
+              <div className="qr-box">
                 <QRCode value={sessionLink} />
               </div>
+            </div>
+          )}
+
+          {attestationLink && (
+            <div className="confirmation-section">
+              <h2>Your proof has been submitted!</h2>
+              <p>View your attestation <a href={attestationLink} target="_blank" rel="noopener noreferrer">here</a>.</p>
             </div>
           )}
         </div>
       </main>
       <footer className="app-footer">
-        &copy; 2023 Student Verification. All rights reserved.
+        &copy; 2023 Educlaim. All rights reserved.
       </footer>
     </div>
   );
